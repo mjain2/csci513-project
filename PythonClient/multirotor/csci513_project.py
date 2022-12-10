@@ -1,5 +1,6 @@
 import setup_path
 import airsim
+import time
 
 import numpy as np
 import os
@@ -108,7 +109,9 @@ state = client.getMultirotorState()
 print("state: %s" % pprint.pformat(state))
 
 airsim.wait_key('Press any key to move vehicle to (-10, 10, -10) at 5 m/s')
+# client.moveToPositionAsync(20450, -19220, 11640, 5).join()
 client.moveToPositionAsync(-10, 10, -10, 5).join()
+
 
 client.hoverAsync().join()
 
@@ -136,8 +139,10 @@ z = -10
 print("make sure we are hovering at {} meters...".format(-z))
 client.moveToZAsync(z, 1).join()
 
-for i in range(0, 30):
-    img = client.simGetImages([airsim.ImageRequest("1", airsim.ImageType.Scene), airsim.ImageRequest("1", airsim.ImageType.Scene, False, False)])
+x = 10
+
+for i in range(1, 30):
+    img = client.simGetImages([airsim.ImageRequest("high_res", airsim.ImageType.Scene), airsim.ImageRequest("high_res", airsim.ImageType.Scene, False, False)])
     filename = os.path.join(tmp_dir, str(i))
     response = img[0] # PNG format
     rgba_response = img[1]
@@ -153,17 +158,30 @@ for i in range(0, 30):
     print(img1d.shape)
     print(img_rgb.shape)
     # print('Retrieved and saved images: %d' % len(response))
+    img_rgb  = img_rgb[...,::-1].copy()
 
     imgp = Image.fromarray(img_rgb, 'RGB') #Image.open(io.BytesIO(rgba_response.image_data_uint8))
+    imgp.save("C:/Users/WangC/AppData/Local/Temp/airsim_drone/test.png")
     resultForImg = predict(imgp)
     print(resultForImg)
     print("flying on path...")
-    result = client.moveOnPathAsync([airsim.Vector3r(125,0,z),
-                                    airsim.Vector3r(125,-130,z),
-                                    airsim.Vector3r(0,-130,z),
-                                    airsim.Vector3r(0,0,z)],
-                            12, 120,
-                            airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0), 20, 1).join()
+    # result = client.moveOnPathAsync([airsim.Vector3r(125,0,z),
+    #                                 airsim.Vector3r(125,-130,z),
+    #                                 airsim.Vector3r(0,-130,z),
+    #                                 airsim.Vector3r(0,0,z)],
+    #                         12, 120,
+    #                         airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0), 20, 1).join()
+
+
+    if i % 5 != 0:
+        client.moveByVelocityAsync(0, x, 0, 5, airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0))
+        time.sleep(5) 
+        # client.simPause(True)
+    else:
+        client.moveByVelocityAsync(-10, 0, 0, 5, airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0))
+        x = x * -1
+        # client.simPause(True)
+        time.sleep(5) 
 
 
 #airsim.wait_key('Press any key to take images')
