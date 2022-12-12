@@ -18,6 +18,14 @@ import onnxruntime
 from huggingface_hub import hf_hub_download
 from PIL import Image
 
+# Import smtplib for the actual sending function
+import smtplib
+
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+
+
 def sendEmail(client, imageBytes):
     completed = False
     try:
@@ -34,16 +42,6 @@ def sendEmail(client, imageBytes):
     return completed
 
 def send_email(coords, confidence, img):
-    # Import smtplib for the actual sending function
-    import smtplib
-
-    from email.mime.text import MIMEText
-    from email.mime.image import MIMEImage
-    from email.mime.multipart import MIMEMultipart
-
-
-
-
     sender = "csci513project@example.com"
     receiver = "wildfiremanagement@example.com"
 
