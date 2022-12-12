@@ -18,7 +18,61 @@ import onnxruntime
 from huggingface_hub import hf_hub_download
 from PIL import Image
 
-#def captureBandImages
+def sendEmail(client, imageBytes):
+    completed = False
+    try:
+        gps_data = client.getGpsData()
+        geo_point = gps_data.gnss.geo_point
+
+        coords = '{},{}'.format(geo_point.latitude, geo_point.longitude)
+        # function(coords, imageBytes)
+        completed = True
+    except: 
+        print("Error with sending email. Printing out GPS coords for now.")
+        print(coords)
+
+    return completed
+
+
+def captureBandImages(client, tmp_dir, ort_session, cfg, count):
+    img = client.simGetImages([airsim.ImageRequest("high_res", airsim.ImageType.Scene), airsim.ImageRequest("high_res", airsim.ImageType.Scene, False, False)])
+    filename = os.path.join(tmp_dir, str("nav"))
+    response = img[0] # PNG format -> for saving screenshots
+    rgba_response = img[1] # RGBA format -> for navigation
+
+    airsim.write_file(os.path.normpath(filename + '.png'), response.image_data_uint8)
+    img1d = np.fromstring(rgba_response.image_data_uint8, dtype=np.uint8)
+    img_rgb_o = img1d.reshape(rgba_response.height, rgba_response.width, 3)
+
+    img_rgb = img_rgb_o[:,:,::-1]
+
+    imgp = Image.fromarray(img_rgb, 'RGB') #Image.open(io.BytesIO(rgba_response.image_data_uint8))
+
+    # slice the image so we only check what we are headed into (and not what is down on the ground below us).
+    # MJ - edit to check only the bottom part of the image
+    bottom = np.vsplit(img_rgb, 2)[1]
+
+    # now look at 4 horizontal bands (far left, left, right, far right) and see which is most open.
+    # the depth map uses black for far away (0) and white for very close (255), so we invert that
+    # to get an estimate of distance.
+    bands = np.hsplit(bottom, 4);
+    #print(bands)
+
+    likelihoods = []
+    #test = predict(Image.fromarray(bands[0], 'RGB'), ort_session, cfg)
+    for band in bands:
+        filename2 = os.path.join(tmp_dir, str(count))
+        band_invert = band[:,:,::-1]
+        cv2.imwrite(os.path.normpath(filename2 + '_bands.png'), band_invert) # write to png
+        result = navigatePredict(Image.fromarray(band, 'RGB'), ort_session, cfg)
+        likelihoods.append(result)
+        count += 1
+
+    
+    mostLikely = np.max(likelihoods)
+    mostLikelyInd = np.argmax(likelihoods)
+    #print(mostLikely)
+    return mostLikelyInd, mostLikely, response.image_data_uint8
 
 
 def preprocess_image(pil_img: Image.Image, cfg) -> np.ndarray:
@@ -36,7 +90,7 @@ def preprocess_image(pil_img: Image.Image, cfg) -> np.ndarray:
     # Normalization
     img -= np.array(cfg["mean"])[:, None, None]
     img /= np.array(cfg["std"])[:, None, None]
-    print("Completing preprocessing of input image.")
+    #print("Completing preprocessing of input image.")
 
     return img[None, ...]
 
@@ -54,9 +108,9 @@ def predict(image, ort_session, cfg):
 
 def navigatePredict(image, ort_session, cfg):
     resultForImg = predict(image, ort_session, cfg)
-    print(resultForImg)
+    #print(resultForImg)
     likelihood = resultForImg['Wildfire'] # should be the percentrage
-    print(likelihood)
+    #print(likelihood)
     return likelihood
 
 
