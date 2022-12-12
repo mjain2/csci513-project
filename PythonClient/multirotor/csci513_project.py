@@ -134,6 +134,15 @@ client.moveToZAsync(z, 1).join()
 
 x = 10
 
+"""
+Default behavior: survey area, turning every 5 pictures
+If wildfire < 0.5 : Continue default behavior
+If 0.5 < wildfire < 0.9: turn towards fire, move towards fire until:
+    1. wildfire > 0.9 : send location data etc
+    2. wildfire < 0.3 : resume default behavior
+if wildfire > 0.9 : send location data, image, and confidence via email etc
+"""
+
 for i in range(1, 30):
     img = client.simGetImages([airsim.ImageRequest("high_res", airsim.ImageType.Scene), airsim.ImageRequest("high_res", airsim.ImageType.Scene, False, False)])
     filename = os.path.join(tmp_dir, str(i))
