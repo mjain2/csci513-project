@@ -33,6 +33,38 @@ def sendEmail(client, imageBytes):
 
     return completed
 
+def send_email(coords, confidence, img):
+    # Import smtplib for the actual sending function
+    import smtplib
+
+    from email.mime.text import MIMEText
+    from email.mime.image import MIMEImage
+    from email.mime.multipart import MIMEMultipart
+
+
+
+
+    sender = "csci513project@example.com"
+    receiver = "wildfiremanagement@example.com"
+
+    message = MIMEText("Fire Detected at {}.\nConfidence level: {}.".format(coords, confidence))
+
+    # Create the container email message.
+    msg = MIMEMultipart()
+    msg['Subject'] = "Fire detected at {}".format(coords)
+    # me == the sender's email address
+    # family = the list of all recipients' email addresses
+    msg['From'] = sender
+    msg['To'] = receiver
+
+    msg.attach(message)
+
+    image = MIMEImage(img, name="fire.jpg")
+    msg.attach(image)
+
+    with smtplib.SMTP("smtp.mailtrap.io", 2525) as server:
+        server.login("ff55927639ded9", "a977028f4d5162")
+        server.sendmail(sender, receiver, msg.as_string())
 
 def captureBandImages(client, tmp_dir, ort_session, cfg, count):
     img = client.simGetImages([airsim.ImageRequest("high_res", airsim.ImageType.Scene), airsim.ImageRequest("high_res", airsim.ImageType.Scene, False, False)])
