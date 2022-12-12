@@ -1,5 +1,6 @@
 import setup_path
 import airsim
+import time
 
 import numpy as np
 import os
@@ -17,6 +18,8 @@ import onnxruntime
 from huggingface_hub import hf_hub_download
 from PIL import Image
 
+from csci513_utils import *
+
 # setup the details needed for detection before connecting to the simulator
 # TODO: move to another helper function probably
 REPO = "pyronear/rexnet1_0x"
@@ -27,52 +30,52 @@ with open(hf_hub_download(REPO, filename="config.json"), "rb") as f:
 
 ort_session = onnxruntime.InferenceSession(hf_hub_download(REPO, filename="model.onnx"))
 
-def preprocess_image(pil_img: Image.Image) -> np.ndarray:
-    """Preprocess an image for inference
-    Args:
-        pil_img: a valid pillow image
-    Returns:
-        the resized and normalized image of shape (1, C, H, W)
-    """
+#def preprocess_image(pil_img: Image.Image) -> np.ndarray:
+#    """Preprocess an image for inference
+#    Args:
+#        pil_img: a valid pillow image
+#    Returns:
+#        the resized and normalized image of shape (1, C, H, W)
+#    """
 
-    # Resizing (PIL takes (W, H) order for resizing)
-    img = pil_img.resize(cfg["input_shape"][-2:][::-1], Image.BILINEAR)
-    # (H, W, C) --> (C, H, W)
-    img = np.asarray(img).transpose((2, 0, 1)).astype(np.float32) / 255
-    # Normalization
-    img -= np.array(cfg["mean"])[:, None, None]
-    img /= np.array(cfg["std"])[:, None, None]
-    print("Completing preprocessing of input image.")
+#    # Resizing (PIL takes (W, H) order for resizing)
+#    img = pil_img.resize(cfg["input_shape"][-2:][::-1], Image.BILINEAR)
+#    # (H, W, C) --> (C, H, W)
+#    img = np.asarray(img).transpose((2, 0, 1)).astype(np.float32) / 255
+#    # Normalization
+#    img -= np.array(cfg["mean"])[:, None, None]
+#    img /= np.array(cfg["std"])[:, None, None]
+#    print("Completing preprocessing of input image.")
 
-    return img[None, ...]
+#    return img[None, ...]
 
-def predict(image):
-    # Preprocessing
-    np_img = preprocess_image(image)
-    ort_input = {ort_session.get_inputs()[0].name: np_img}
+#def predict(image):
+#    # Preprocessing
+#    np_img = preprocess_image(image)
+#    ort_input = {ort_session.get_inputs()[0].name: np_img}
 
-    # Inference
-    ort_out = ort_session.run(None, ort_input)
-    # Post-processing
-    probs = 1 / (1 + np.exp(-ort_out[0][0]))
+#    # Inference
+#    ort_out = ort_session.run(None, ort_input)
+#    # Post-processing
+#    probs = 1 / (1 + np.exp(-ort_out[0][0]))
 
-    return {class_name: float(conf) for class_name, conf in zip(cfg["classes"], probs)}
+#    return {class_name: float(conf) for class_name, conf in zip(cfg["classes"], probs)}
 
-def getPath():
-    path = []
-    distance = 0
-    #while x < self.boxsize:
-    #    distance += self.boxsize
-    #    path.append(Vector3r(x, self.boxsize, z))
-    #    x += self.stripewidth
-    #    distance += self.stripewidth
-    #    path.append(Vector3r(x, self.boxsize, z))
-    #    distance += self.boxsize
-    #    path.append(Vector3r(x, -self.boxsize, z))
-    #    x += self.stripewidth
-    #    distance += self.stripewidth
-    #    path.append(Vector3r(x, -self.boxsize, z))
-    #    distance += self.boxsize
+#def getPath():
+#    path = []
+#    distance = 0
+#    #while x < self.boxsize:
+#    #    distance += self.boxsize
+#    #    path.append(Vector3r(x, self.boxsize, z))
+#    #    x += self.stripewidth
+#    #    distance += self.stripewidth
+#    #    path.append(Vector3r(x, self.boxsize, z))
+#    #    distance += self.boxsize
+#    #    path.append(Vector3r(x, -self.boxsize, z))
+#    #    x += self.stripewidth
+#    #    distance += self.stripewidth
+#    #    path.append(Vector3r(x, -self.boxsize, z))
+#    #    distance += self.boxsize
 
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
@@ -108,21 +111,14 @@ state = client.getMultirotorState()
 print("state: %s" % pprint.pformat(state))
 
 airsim.wait_key('Press any key to move vehicle to (-10, 10, -10) at 5 m/s')
+# client.moveToPositionAsync(20450, -19220, 11640, 5).join()
 client.moveToPositionAsync(-10, 10, -10, 5).join()
+
 
 client.hoverAsync().join()
 
 state = client.getMultirotorState()
 print("state: %s" % pprint.pformat(state))
-
-'''
-Pseudocode:
-- add component to do some default moving (until key 'q' pressed maybe?)
-    -> do a default survey of an area (https://github.com/microsoft/AirSim/blob/main/PythonClient/multirotor/survey.py)
-- every 'step' take an image and use that image to predict
-    - add pyrovision code here to detect forest fires
-- 
-'''
 
 tmp_dir = os.path.join(tempfile.gettempdir(), "airsim_drone")
 print ("Saving images to %s" % tmp_dir)
@@ -136,8 +132,10 @@ z = -10
 print("make sure we are hovering at {} meters...".format(-z))
 client.moveToZAsync(z, 1).join()
 
-for i in range(0, 30):
-    img = client.simGetImages([airsim.ImageRequest("1", airsim.ImageType.Scene), airsim.ImageRequest("1", airsim.ImageType.Scene, False, False)])
+x = 10
+
+for i in range(1, 30):
+    img = client.simGetImages([airsim.ImageRequest("high_res", airsim.ImageType.Scene), airsim.ImageRequest("high_res", airsim.ImageType.Scene, False, False)])
     filename = os.path.join(tmp_dir, str(i))
     response = img[0] # PNG format
     rgba_response = img[1]
@@ -150,47 +148,34 @@ for i in range(0, 30):
     #cv2.imwrite(os.path.normpath(filename + '.png'), img_rgb) # write to png
     img1d = np.fromstring(rgba_response.image_data_uint8, dtype=np.uint8)
     img_rgb = img1d.reshape(rgba_response.height, rgba_response.width, 3)
-    print(img1d.shape)
-    print(img_rgb.shape)
+    #print(img1d.shape)
+    #print(img_rgb.shape)
     # print('Retrieved and saved images: %d' % len(response))
+    img_rgb  = img_rgb[...,::-1].copy()
 
-    imgp = Image.fromarray(img_rgb, 'RGB') #Image.open(io.BytesIO(rgba_response.image_data_uint8))
-    resultForImg = predict(imgp)
-    print(resultForImg)
+    imgp = Image.fromarray(img_rgb, 'RGB') 
+    #imgp.save("C:/Users/WangC/AppData/Local/Temp/airsim_drone/test.png")
+    resultForImg = predict(imgp, ort_session, cfg)
+    print(resultForImg['Wildfire'])
+    #print(resultForImg)
     print("flying on path...")
-    result = client.moveOnPathAsync([airsim.Vector3r(125,0,z),
-                                    airsim.Vector3r(125,-130,z),
-                                    airsim.Vector3r(0,-130,z),
-                                    airsim.Vector3r(0,0,z)],
-                            12, 120,
-                            airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0), 20, 1).join()
+    # result = client.moveOnPathAsync([airsim.Vector3r(125,0,z),
+    #                                 airsim.Vector3r(125,-130,z),
+    #                                 airsim.Vector3r(0,-130,z),
+    #                                 airsim.Vector3r(0,0,z)],
+    #                         12, 120,
+    #                         airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0), 20, 1).join()
 
 
-#airsim.wait_key('Press any key to take images')
-## get camera images from the car
-#responses = client.simGetImages([
-#    airsim.ImageRequest("0", airsim.ImageType.DepthVis),  #depth visualization image
-#    airsim.ImageRequest("1", airsim.ImageType.DepthPerspective, True), #depth in perspective projection
-#    airsim.ImageRequest("1", airsim.ImageType.Scene), #scene vision image in png format
-#    airsim.ImageRequest("1", airsim.ImageType.Scene, False, False)])  #scene vision image in uncompressed RGBA array
-#print('Retrieved images: %d' % len(responses))
-
-
-#for idx, response in enumerate(responses):
-
-#    filename = os.path.join(tmp_dir, str(idx))
-
-#    if response.pixels_as_float:
-#        print("Type %d, size %d" % (response.image_type, len(response.image_data_float)))
-#        airsim.write_pfm(os.path.normpath(filename + '.pfm'), airsim.get_pfm_array(response))
-#    elif response.compress: #png format
-#        print("Type %d, size %d" % (response.image_type, len(response.image_data_uint8)))
-#        airsim.write_file(os.path.normpath(filename + '.png'), response.image_data_uint8)
-#    else: #uncompressed array
-#        print("Type %d, size %d" % (response.image_type, len(response.image_data_uint8)))
-#        img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
-#        img_rgb = img1d.reshape(response.height, response.width, 3) # reshape array to 4 channel image array H X W X 3
-#        cv2.imwrite(os.path.normpath(filename + '.png'), img_rgb) # write to png
+    if i % 5 != 0:
+        client.moveByVelocityAsync(0, x, 0, 5, airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0))
+        time.sleep(5) 
+        # client.simPause(True)
+    else:
+        client.moveByVelocityAsync(-10, 0, 0, 5, airsim.DrivetrainType.ForwardOnly, airsim.YawMode(False,0))
+        x = x * -1
+        # client.simPause(True)
+        time.sleep(5) 
 
 airsim.wait_key('Press any key to reset to original state')
 
