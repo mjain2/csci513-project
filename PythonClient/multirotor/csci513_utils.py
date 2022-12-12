@@ -26,14 +26,14 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 
 
-def sendEmail(client, imageBytes):
+def sendEmailWrapper(client, mostLikely, imageBytes):
     completed = False
     try:
         gps_data = client.getGpsData()
         geo_point = gps_data.gnss.geo_point
 
-        coords = '{},{}'.format(geo_point.latitude, geo_point.longitude)
-        # function(coords, imageBytes)
+        coords = 'Latitude: {}, Longitude: {}'.format(geo_point.latitude, geo_point.longitude)
+        send_email(coords, mostLikely, imageBytes)
         completed = True
     except: 
         print("Error with sending email. Printing out GPS coords for now.")

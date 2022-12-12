@@ -96,7 +96,7 @@ def discoverFire():
                     print(mostLikely)
                     print("INSERT THE EMAIL CODE HERE")
                     messagebox.showerror("Fire Found!", "Sending email with image and GPS locations")
-                    sendEmail(client, fireImage) 
+                    sendEmailWrapper(client, mostLikely, fireImage) 
 
                     client.hoverAsync().join()
                     time.sleep(10)
